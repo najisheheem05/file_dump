@@ -1,0 +1,169 @@
+exp01
+flex exp01/lex.l
+gcc lex.yy.c -lfl
+cp exp01/ip_lex.c input_lex.c
+./a.out
+No typing. Direct output - tokens like int Keyword, 10 Integer constant.
+
+
+exp02
+
+flex exp02/exp2.l
+gcc lex.yy.c -lfl
+./a.out
+Enter text (Ctrl+D to end): Hello World
+This is Lex
+Compiler Design
+[Ctrl+D]
+Lines = 3
+Words = 7
+Characters = 40
+
+
+exp03
+
+flex exp03/exp3.l
+gcc lex.yy.c -lfl
+./a.out
+Enter a string: hello abc world
+[Ctrl+D]
+hello ABC world
+
+
+exp04
+
+flex exp04/exp4.l
+gcc lex.yy.c -lfl
+./a.out
+Enter a string: Hello World
+[Ctrl+D]
+Vowels = 3
+Consonants = 7
+
+
+exp05
+
+bison -d exp05/arith_expr.y
+flex exp05/arith_expr.l
+gcc y.tab.c lex.yy.c -lfl
+./a.out
+Enter an arithmetic expression: 10+20*5
+Valid Expression
+
+
+exp06
+
+bison -d exp06/calc.y
+flex exp06/calc.l
+gcc y.tab.c lex.yy.c -lfl
+./a.out
+Enter expressions to evaluate (Ctrl+D to exit): 10+20
+Result = 30
+(10+20)*5
+Result = 150
+[Ctrl+D]
+
+
+exp07
+
+gcc exp07/exp7.c
+./a.out
+Enter the number of alphabets? : 3
+Enter alphabets? : 0 1 e
+Enter the number of states? : 4
+Enter no of transition? : 4
+Enter transition? : 1e2 103 2e4 314
+e-closure of q1 - {q1,q2,q4}
+e-closure of q2 - {q2,q4}
+e-closure of q3 - {q3}
+e-closure of q4 - {q4}
+
+
+exp08
+
+gcc exp08/exp8.c
+./a.out
+Enter number of alphabets: : 2
+Enter alphabets: : 0 1
+Enter number of states: : 4
+Enter start state: : 1
+Enter number of final states: : 1
+Enter final states: : 3
+Enter number of transitions: : 5
+Enter transitions: : 1 0 1
+1 0 2
+1 1 1
+2 1 3
+3 0 3
+{q1} --0--> {q1q2} etc.
+D2 = {q1q3} (Final)
+
+
+exp09
+
+gcc exp09/exp9.c
+./a.out
+Enter number of productions: : 8
+Enter productions (use e for epsilon): : E->TX
+X->+TX
+X->e
+T->FY
+Y->*FY
+Y->e
+F->(E)
+F->i
+FIRST(E) = { ( i } etc.
+FOLLOW(E) = { $ ) } etc.
+
+
+exp10
+
+gcc exp10/exp10.c
+./a.out
+Enter expression: : a+a*a
+Accepted
+
+
+exp11
+
+gcc exp11/exp11.c
+./a.out
+Enter the expression for operator precedence parsing(end with $): : i+i*i$
+$  i+i*i$ Shift ... Valid Expression
+
+
+exp12
+
+gcc exp12/exp12.c
+./a.out
+Enter the maximum number of expressions: : 4
+Enter the input: : = 5 _ a
++ a b t1
+* t1 c t2
++ t2 d t3
+Optimized code is:
++ 5 b t1
+* t1 c t2
++ t2 d t3
+
+
+exp13
+
+gcc exp13/exp13.c
+./a.out
+Enter expression: : a+b*c
+Postfix form: abc*+
+t1 = b * c
+t2 = a + t1
+
+
+exp14
+
+gcc exp14/exp14.c
+./a.out
+Enter number of instructions: : 4
+Enter TAC: : + a b t1
+- c d t2
+* e f t3
+/ g h t4
+MOV AX,a / ADD AX,b / MOV t1,AX etc.
