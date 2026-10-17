@@ -1,0 +1,14 @@
+01 : Implementation of Lexical Analyzer Using Lex Tool
+02 : Count the Number of Lines, Words and Characters using lex
+03 : Replace the Substring abc with ABC Using Lex
+04 : Count Vowels and Consonants Using Lex
+05 : Recognize a Valid Arithmetic Expression Using YACC
+06 : Implementation of Calculator Using LEX and YACC
+07 : To write a program to find ε – closure of all states of any given NFA with ε transition
+08 : To write a program to convert NFA to DFA
+09 : To write a program to find First and Follow of any given grammar
+10 : To Design and implement a recursive descent parser for a given grammar
+11 : To Construct a Shift Reduce Parser for a given language.
+12 : To Write a program to perform constant propagation
+13 : To Implement Intermediate code generation for simple expressions
+14 : To Implement the back end of the compiler which takes the three address code and produces the 8086 assembly language instructions that can be assembled and run using an 8086 assembler. The target assembly instructions can be simple move, add, sub, jump etc.
