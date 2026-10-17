@@ -1,0 +1,693 @@
+COMPILER DESIGN LAB - CLEAN SOURCE CODES (EXPERIMENTS 1-14)
+Reconstructed from the supplied PDFs. Obvious syntax, formatting and indexing issues are corrected where needed.
+
+================ EXPERIMENT 1: LEXICAL ANALYZER ================
+File: exp1.l
+%{
+#include <stdio.h>
+%}
+letter [a-zA-Z_]
+digit [0-9]
+%%
+int|float|char|double|void|if|else|while|do|for|return|break|continue|switch|case|default|struct { printf("%s\tKeyword\n", yytext); }
+{letter}({letter}|{digit})* { printf("%s\tIdentifier\n", yytext); }
+{digit}+"."{digit}+ { printf("%s\tFloat constant\n", yytext); }
+{digit}+ { printf("%s\tInteger constant\n", yytext); }
+"=="|"!="|"<="|">="|"++"|"--"|"+="|"-="|"*="|"/="|"&&"|"||" { printf("%s\tOperator\n", yytext); }
+[+*/%=<>!&|-] { printf("%s\tOperator\n", yytext); }
+[(){};,] { printf("%s\tSpecial symbol\n", yytext); }
+[ \t\n]+ ;
+. { printf("%s\tUnknown\n", yytext); }
+%%
+int yywrap(void) { return 1; }
+int main(void) {
+    extern FILE *yyin;
+    yyin = fopen("input_lex.c", "r");
+    if (yyin == NULL) { printf("Error opening file\n"); return 1; }
+    yylex();
+    fclose(yyin);
+    return 0;
+}
+
+File: input_lex.c (sample input)
+int main() {
+    int a = 10;
+    float b = 20.5;
+    if (a == 10) { a++; }
+    return 0;
+}
+
+================ EXPERIMENT 2: COUNT LINES, WORDS AND CHARACTERS ================
+File: exp2.l
+%{
+#include <stdio.h>
+int lines = 0, words = 0, chars = 0;
+%}
+%%
+\n          { lines++; chars++; }
+[ \t]+      { chars += yyleng; }
+[^ \t\n]+    { words++; chars += yyleng; }
+%%
+int yywrap(void) { return 1; }
+int main(void) {
+    printf("Enter text (Ctrl+D to end):\n");
+    yylex();
+    printf("\nLines = %d", lines);
+    printf("\nWords = %d", words);
+    printf("\nCharacters = %d\n", chars);
+    return 0;
+}
+
+================ EXPERIMENT 3: REPLACE abc WITH ABC ================
+File: exp3.l
+%{
+#include <stdio.h>
+%}
+%%
+abc     { printf("ABC"); }
+.|\n    { ECHO; }
+%%
+int yywrap(void) { return 1; }
+int main(void) {
+    printf("Enter a string:\n");
+    yylex();
+    return 0;
+}
+
+================ EXPERIMENT 4: COUNT VOWELS AND CONSONANTS ================
+File: exp4.l
+%{
+#include <stdio.h>
+int vowels = 0, consonants = 0;
+%}
+%%
+[aeiouAEIOU] { vowels++; }
+[a-zA-Z]     { consonants++; }
+.|\n         { /* Ignore other characters */ }
+%%
+int yywrap(void) { return 1; }
+int main(void) {
+    printf("Enter a string:\n");
+    yylex();
+    printf("\nVowels = %d", vowels);
+    printf("\nConsonants = %d\n", consonants);
+    return 0;
+}
+
+================ EXPERIMENT 5: VALIDATE ARITHMETIC EXPRESSION ================
+File: arith_expr.y
+%{
+#include <stdio.h>
+#include <stdlib.h>
+int yylex(void);
+int yyerror(const char *s);
+%}
+%token NUMBER
+%left '+' '-'
+%left '*' '/'
+%left UMINUS
+%%
+stmt: expr '\n' { printf("Valid Expression\n"); } ;
+expr: expr '+' expr
+    | expr '-' expr
+    | expr '*' expr
+    | expr '/' expr
+    | '-' expr %prec UMINUS
+    | '(' expr ')'
+    | NUMBER
+    ;
+%%
+int yyerror(const char *s) {
+    fprintf(stderr, "Syntax Error: %s\n", s);
+    return 1;
+}
+int main(void) {
+    printf("Enter an arithmetic expression:\n");
+    yyparse();
+    return 0;
+}
+
+File: arith_expr.l
+%{
+#include "y.tab.h"
+#include <stdlib.h>
+%}
+%%
+[0-9]+ { yylval = atoi(yytext); return NUMBER; }
+[ \t]  ;
+\n      { return '\n'; }
+.       { return *yytext; }
+%%
+int yywrap(void) { return 1; }
+
+================ EXPERIMENT 6: ARITHMETIC EXPRESSION CALCULATOR ================
+File: calc.y
+%{
+#include <stdio.h>
+#include <stdlib.h>
+int yylex(void);
+int yyerror(const char *s);
+%}
+%token NUMBER
+%left '+' '-'
+%left '*' '/'
+%left UMINUS
+%%
+input: input line | /* empty */ ;
+line: expr '\n' { printf("Result = %d\n", $1); } ;
+expr: expr '+' expr { $$ = $1 + $3; }
+    | expr '-' expr { $$ = $1 - $3; }
+    | expr '*' expr { $$ = $1 * $3; }
+    | expr '/' expr {
+        if ($3 == 0) { yyerror("Division by zero"); YYABORT; }
+        else { $$ = $1 / $3; }
+      }
+    | '-' expr %prec UMINUS { $$ = -$2; }
+    | '(' expr ')' { $$ = $2; }
+    | NUMBER { $$ = $1; }
+    ;
+%%
+int yyerror(const char *s) {
+    printf("Error: %s\n", s);
+    return 1;
+}
+int main(void) {
+    printf("Enter expressions to evaluate (Ctrl+D to exit):\n");
+    yyparse();
+    return 0;
+}
+
+File: calc.l
+%{
+#include "y.tab.h"
+#include <stdlib.h>
+%}
+%%
+[0-9]+ { yylval = atoi(yytext); return NUMBER; }
+[ \t]  ;
+\n      { return '\n'; }
+.       { return yytext[0]; }
+%%
+int yywrap(void) { return 1; }
+
+================ EXPERIMENT 7: EPSILON CLOSURE ================
+File: exp7.c
+#include <stdio.h>
+int findvalue(char c) { return c - '0'; }
+int main(void) {
+    int noalpha, nostate, notrans;
+    int eclos[10][20] = {0};
+    int i, j, k, x, count, state, next, found;
+    char alpha[5], trans[30][3];
+
+    printf("Enter the number of alphabets?\n");
+    scanf("%d", &noalpha);
+    printf("NOTE:- [ use letter e as epsilon ]\n");
+    printf("\nEnter alphabets?\n");
+    for (i = 0; i < noalpha; i++) scanf(" %c", &alpha[i]);
+    printf("\nEnter the number of states?\n");
+    scanf("%d", &nostate);
+    printf("\nEnter no of transition?\n");
+    scanf("%d", &notrans);
+    printf("\nEnter transition?\n");
+    for (i = 0; i < notrans; i++) {
+        scanf(" %c %c %c", &trans[i][0], &trans[i][1], &trans[i][2]);
+    }
+
+    printf("\ne-closure of states\n");
+    for (i = 1; i <= nostate; i++) {
+        count = 0;
+        eclos[i][count++] = i;
+        for (j = 0; j < count; j++) {
+            state = eclos[i][j];
+            for (k = 0; k < notrans; k++) {
+                if (findvalue(trans[k][0]) == state && trans[k][1] == 'e') {
+                    next = findvalue(trans[k][2]);
+                    found = 0;
+                    for (x = 0; x < count; x++) {
+                        if (eclos[i][x] == next) { found = 1; break; }
+                    }
+                    if (!found && count < 20) eclos[i][count++] = next;
+                }
+            }
+        }
+    }
+    for (i = 1; i <= nostate; i++) {
+        printf("e-closure of q%d - {", i);
+        for (j = 0; j < 20 && eclos[i][j] != 0; j++) {
+            printf("q%d", eclos[i][j]);
+            if (j + 1 < 20 && eclos[i][j + 1] != 0) printf(",");
+        }
+        printf("}\n");
+    }
+    return 0;
+}
+
+================ EXPERIMENT 8: NFA TO DFA ================
+File: exp8.c
+#include <stdio.h>
+int n, m;
+char alphabet[10];
+int trans[10][10][10];
+int dfa[20][10];
+int dfa_count = 0;
+
+int findstate(int state[]) {
+    int i, j;
+    for (i = 0; i < dfa_count; i++) {
+        for (j = 1; j <= n; j++) if (dfa[i][j] != state[j]) break;
+        if (j > n) return i;
+    }
+    return -1;
+}
+void addstate(int state[]) {
+    int i;
+    if (findstate(state) == -1 && dfa_count < 20) {
+        for (i = 1; i <= n; i++) dfa[dfa_count][i] = state[i];
+        dfa_count++;
+    }
+}
+void printstate(int state[]) {
+    int i, empty = 1;
+    printf("{");
+    for (i = 1; i <= n; i++) {
+        if (state[i]) { printf("q%d", i); empty = 0; }
+    }
+    if (empty) printf("NULL");
+    printf("}");
+}
+int main(void) {
+    int i, j, k, start, nofinal, notrans;
+    int final[10], state[10] = {0}, newstate[10];
+    int current, from, to;
+    char symbol;
+    printf("Enter number of alphabets: "); scanf("%d", &m);
+    printf("Enter alphabets:\n");
+    for (i = 0; i < m; i++) scanf(" %c", &alphabet[i]);
+    printf("Enter number of states: "); scanf("%d", &n);
+    printf("Enter start state: "); scanf("%d", &start);
+    printf("Enter number of final states: "); scanf("%d", &nofinal);
+    printf("Enter final states:\n");
+    for (i = 0; i < nofinal; i++) scanf("%d", &final[i]);
+    printf("Enter number of transitions: "); scanf("%d", &notrans);
+    printf("Enter transitions:\n");
+    for (i = 0; i < notrans; i++) {
+        scanf("%d %c %d", &from, &symbol, &to);
+        for (j = 0; j < m; j++)
+            if (alphabet[j] == symbol) trans[from][j][to] = 1;
+    }
+    state[start] = 1;
+    addstate(state);
+    current = 0;
+    while (current < dfa_count) {
+        for (i = 0; i < m; i++) {
+            for (j = 1; j <= n; j++) newstate[j] = 0;
+            for (j = 1; j <= n; j++) {
+                if (dfa[current][j]) {
+                    for (k = 1; k <= n; k++)
+                        if (trans[j][i][k]) newstate[k] = 1;
+                }
+            }
+            printf("\n");
+            printstate(dfa[current]);
+            printf(" --%c--> ", alphabet[i]);
+            printstate(newstate);
+            addstate(newstate);
+        }
+        current++;
+    }
+    printf("\n\nStates of DFA:\n");
+    for (i = 0; i < dfa_count; i++) {
+        printf("D%d = ", i);
+        printstate(dfa[i]);
+        for (j = 1; j <= n; j++) {
+            if (dfa[i][j]) {
+                for (k = 0; k < nofinal; k++) {
+                    if (j == final[k]) { printf(" (Final)"); break; }
+                }
+                if (k < nofinal) break;
+            }
+        }
+        printf("\n");
+    }
+    printf("\nStart state: ");
+    printstate(dfa[0]);
+    return 0;
+}
+
+================ EXPERIMENT 9: FIRST AND FOLLOW ================
+File: exp9.c
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+char p[20][20], first[26][20], follow[26][20];
+int n;
+
+int present(char s[], char c) { return strchr(s, c) != NULL; }
+void add(char s[], char c) {
+    if (!present(s, c)) {
+        int l = strlen(s);
+        s[l] = c;
+        s[l + 1] = '\0';
+    }
+}
+void FIRST(char c, char r[]) {
+    int i, j, k;
+    char t[20];
+    if (!isupper((unsigned char)c)) { add(r, c); return; }
+    for (i = 0; i < n; i++) {
+        if (p[i][0] == c) {
+            if (p[i][3] == 'e') add(r, 'e');
+            else {
+                for (j = 3; p[i][j]; j++) {
+                    strcpy(t, "");
+                    FIRST(p[i][j], t);
+                    for (k = 0; t[k]; k++) if (t[k] != 'e') add(r, t[k]);
+                    if (!present(t, 'e')) break;
+                    if (!p[i][j + 1]) add(r, 'e');
+                }
+            }
+        }
+    }
+}
+void FOLLOW(char c, char r[]) {
+    int i, j, k;
+    char t[20], u[20];
+    if (c == p[0][0]) add(r, '$');
+    for (i = 0; i < n; i++) {
+        for (j = 3; p[i][j]; j++) {
+            if (p[i][j] == c) {
+                if (p[i][j + 1]) {
+                    strcpy(t, "");
+                    FIRST(p[i][j + 1], t);
+                    for (k = 0; t[k]; k++) if (t[k] != 'e') add(r, t[k]);
+                    if (present(t, 'e') && p[i][0] != c) {
+                        strcpy(u, "");
+                        FOLLOW(p[i][0], u);
+                        for (k = 0; u[k]; k++) add(r, u[k]);
+                    }
+                } else if (p[i][0] != c) {
+                    strcpy(u, "");
+                    FOLLOW(p[i][0], u);
+                    for (k = 0; u[k]; k++) add(r, u[k]);
+                }
+            }
+        }
+    }
+}
+int main(void) {
+    int i, j;
+    char c;
+    printf("Enter number of productions: "); scanf("%d", &n);
+    printf("Enter productions (use e for epsilon):\n");
+    for (i = 0; i < n; i++) scanf("%19s", p[i]);
+    printf("\nFIRST:\n");
+    for (i = 0; i < n; i++) {
+        c = p[i][0];
+        if (!first[c - 'A'][0]) FIRST(c, first[c - 'A']);
+        if (i == 0 || p[i - 1][0] != c) {
+            printf("FIRST(%c) = { ", c);
+            for (j = 0; first[c - 'A'][j]; j++) printf("%c ", first[c - 'A'][j]);
+            printf("}\n");
+        }
+    }
+    printf("\nFOLLOW:\n");
+    for (i = 0; i < n; i++) {
+        c = p[i][0];
+        if (!follow[c - 'A'][0]) FOLLOW(c, follow[c - 'A']);
+        if (i == 0 || p[i - 1][0] != c) {
+            printf("FOLLOW(%c) = { ", c);
+            for (j = 0; follow[c - 'A'][j]; j++) printf("%c ", follow[c - 'A'][j]);
+            printf("}\n");
+        }
+    }
+    return 0;
+}
+
+================ EXPERIMENT 10: RECURSIVE DESCENT PARSER ================
+File: exp10.c
+#include <stdio.h>
+#include <string.h>
+char s[20];
+int i = 0, error = 0;
+void E(void);
+void T(void);
+void F(void);
+void E(void) {
+    T();
+    while (s[i] == '+') { /* corrected malformed condition in PDF */
+        i++;
+        T();
+    }
+}
+void T(void) {
+    F();
+    while (s[i] == '*') {
+        i++;
+        F();
+    }
+}
+void F(void) {
+    if (s[i] == 'a') i++;
+    else if (s[i] == '(') {
+        i++;
+        E();
+        if (s[i] == ')') i++;
+        else error = 1;
+    } else error = 1;
+}
+int main(void) {
+    printf("Enter expression: ");
+    scanf("%19s", s);
+    E();
+    if (i == (int)strlen(s) && error == 0) printf("Accepted");
+    else printf("Rejected");
+    return 0;
+}
+
+================ EXPERIMENT 11: OPERATOR PRECEDENCE PARSER ================
+File: exp11.c
+NOTE: The original PDF's accept condition is corrupted. The condition below is reconstructed from the shown output. The original reduction method is otherwise retained.
+#include <stdio.h>
+char stack[50], s[50];
+int top = -1, i = 0;
+char op[] = {'i', '+', '*', '$'};
+char table[4][4] = {
+    {'=', '>', '>', '>'},
+    {'<', '>', '<', '>'},
+    {'<', '>', '>', '>'},
+    {'<', '<', '<', '='}
+};
+int pos(char c) {
+    int j;
+    for (j = 0; j < 4; j++) if (op[j] == c) return j;
+    return -1;
+}
+void display(void) {
+    int j;
+    for (j = 0; j <= top; j++) printf("%c", stack[j]);
+    printf("\t\t");
+    for (j = i; s[j] != '\0'; j++) printf("%c", s[j]);
+    printf("\t\t");
+}
+void parse(void) {
+    char rel, ch;
+    int p1, p2;
+    printf("Enter the expression for operator precedence parsing(end with $): ");
+    scanf("%49s", s);
+    stack[++top] = '$';
+    while (1) {
+        display();
+        if (stack[top] == '$' && s[i] == '$') {
+            printf("\nValid Expression\n");
+            return;
+        }
+        p1 = pos(stack[top]);
+        p2 = pos(s[i]);
+        if (p1 == -1 || p2 == -1) {
+            printf("\nInvalid expression\n"); return;
+        }
+        rel = table[p1][p2];
+        if (rel == '<' || rel == '=') {
+            stack[++top] = s[i++];
+            printf("Shift\n");
+        } else if (rel == '>') {
+            ch = stack[top--];
+            while (top >= 0 && pos(stack[top]) != -1 &&
+                   table[pos(stack[top])][pos(ch)] != '<') {
+                ch = stack[top--];
+            }
+            printf("%c Reduce\n", ch);
+        } else {
+            printf("\nInvalid expression\n"); return;
+        }
+    }
+}
+int main(void) { parse(); return 0; }
+
+================ EXPERIMENT 12: CONSTANT PROPAGATION / FOLDING ================
+File: exp12.c
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+#include <stdlib.h>
+struct expr {
+    char op[2], op1[5], op2[5], res[5];
+    int flag;
+} arr[10];
+int n;
+void input(void);
+void output(void);
+void change(int p, char *res);
+void constant(void);
+int main(void) {
+    input(); constant(); output(); return 0;
+}
+void input(void) {
+    int i;
+    printf("\nEnter the maximum number of expressions: ");
+    scanf("%d", &n);
+    printf("\nEnter the input:\n");
+    for (i = 0; i < n; i++) {
+        scanf("%1s %4s %4s %4s", arr[i].op, arr[i].op1, arr[i].op2, arr[i].res);
+        arr[i].flag = 0;
+    }
+}
+void constant(void) {
+    int i, op1, op2, res;
+    char op, res1[5];
+    for (i = 0; i < n; i++) {
+        if ((isdigit((unsigned char)arr[i].op1[0]) &&
+             isdigit((unsigned char)arr[i].op2[0])) || strcmp(arr[i].op, "=") == 0) {
+            op1 = atoi(arr[i].op1);
+            op2 = atoi(arr[i].op2);
+            op = arr[i].op[0];
+            switch (op) {
+                case '+': res = op1 + op2; break;
+                case '-': res = op1 - op2; break;
+                case '*': res = op1 * op2; break;
+                case '/': if (op2 == 0) continue; res = op1 / op2; break;
+                case '=': res = op1; break;
+                default: continue;
+            }
+            snprintf(res1, sizeof(res1), "%d", res);
+            arr[i].flag = 1;
+            change(i, res1);
+        }
+    }
+}
+void change(int p, char *res) {
+    int i;
+    for (i = p + 1; i < n; i++) {
+        if (strcmp(arr[p].res, arr[i].op1) == 0) strcpy(arr[i].op1, res);
+        if (strcmp(arr[p].res, arr[i].op2) == 0) strcpy(arr[i].op2, res);
+    }
+}
+void output(void) {
+    int i;
+    printf("\nOptimized code is:");
+    for (i = 0; i < n; i++) {
+        if (!arr[i].flag)
+            printf("\n%s %s %s %s", arr[i].op, arr[i].op1, arr[i].op2, arr[i].res);
+    }
+    printf("\n");
+}
+
+================ EXPERIMENT 13: INTERMEDIATE CODE GENERATION ================
+File: exp13.c
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+char stack[20][10];
+int top = -1, temp = 1;
+void push(char s[]) { strcpy(stack[++top], s); }
+char *pop(void) { return stack[top--]; }
+int prec(char c) {
+    if (c == '+' || c == '-') return 1;
+    if (c == '*' || c == '/') return 2;
+    if (c == '^') return 3;
+    return 0;
+}
+int main(void) {
+    char infix[30], postfix[30], a[10], b[10], t[10];
+    int i, j = 0;
+    printf("Enter expression: ");
+    scanf("%29s", infix);
+    for (i = 0; infix[i]; i++) {
+        if (isalnum((unsigned char)infix[i])) postfix[j++] = infix[i];
+        else if (infix[i] == '(') {
+            char x[2] = "(";
+            push(x);
+        } else if (infix[i] == ')') {
+            while (top != -1 && strcmp(stack[top], "(") != 0)
+                postfix[j++] = pop()[0];
+            if (top != -1) pop();
+        } else {
+            while (top != -1 && prec(stack[top][0]) >= prec(infix[i]))
+                postfix[j++] = pop()[0];
+            char x[2] = {infix[i], '\0'};
+            push(x);
+        }
+    }
+    while (top != -1) postfix[j++] = pop()[0];
+    postfix[j] = '\0';
+    printf("Postfix form: %s\n", postfix);
+    top = -1;
+    printf("\nIntermediate Code:\n");
+    for (i = 0; postfix[i]; i++) {
+        if (isalnum((unsigned char)postfix[i])) {
+            char x[2] = {postfix[i], '\0'};
+            push(x);
+        } else {
+            strcpy(b, pop());
+            strcpy(a, pop());
+            sprintf(t, "t%d", temp);
+            printf("%s = %s %c %s\n", t, a, postfix[i], b);
+            push(t);
+            temp++;
+        }
+    }
+    return 0;
+}
+
+================ EXPERIMENT 14: 8086 ASSEMBLY CODE GENERATION ================
+File: exp14.c
+#include <stdio.h>
+int main(void) {
+    int n, i;
+    char op[10][2], a[10][10], b[10][10], r[10][10];
+    printf("Enter number of instructions: ");
+    scanf("%d", &n);
+    printf("Enter TAC:\n");
+    for (i = 0; i < n; i++) scanf("%1s %9s %9s %9s", op[i], a[i], b[i], r[i]);
+    printf("\n8086 Assembly Code:\n");
+    for (i = 0; i < n; i++) {
+        if (op[i][0] == '+') {
+            printf("MOV AX,%s\n", a[i]);
+            printf("ADD AX,%s\n", b[i]);
+            printf("MOV %s,AX\n\n", r[i]);
+        } else if (op[i][0] == '-') {
+            printf("MOV AX,%s\n", a[i]);
+            printf("SUB AX,%s\n", b[i]);
+            printf("MOV %s,AX\n\n", r[i]);
+        } else if (op[i][0] == '*') {
+            printf("MOV AX,%s\n", a[i]);
+            printf("MOV BX,%s\n", b[i]);
+            printf("MUL BX\n");
+            printf("MOV %s,AX\n\n", r[i]);
+        } else if (op[i][0] == '/') {
+            printf("MOV AX,%s\n", a[i]);
+            printf("MOV BX,%s\n", b[i]);
+            printf("DIV BX\n");
+            printf("MOV %s,AX\n\n", r[i]);
+        }
+    }
+    return 0;
+}
+
+NOTES:
+- Experiment 10: PDF shows a malformed condition; '+' was reconstructed from the grammar and sample output.
+- Experiment 11: PDF has a corrupted acceptance test; the reduction logic is retained but may not validate every malformed expression.
+- Experiments 7-9 and 12-13 are educational implementations with fixed-size arrays and limited supported inputs.
+- Experiment 9's recursive FIRST/FOLLOW implementation is intended for the PDF's sample grammar, not arbitrary left-recursive grammars.
+- Experiment 14 prints 8086-like assembly; it is not a full assembler or executable assembly source.
